@@ -25,6 +25,8 @@ export const DEFAULT_SETTINGS: Settings = {
   nexusUrl: "",
   layout: { streamWidth: LAYOUT_LIMITS.streamWidth.default, streamHeight: LAYOUT_LIMITS.streamHeight.default },
   questions: DEFAULT_QUESTIONS,
+  clockFormat: "12",
+  alarmVolume: 60,
 };
 
 export function clampLayout(l: Partial<Layout>): Layout {
@@ -60,6 +62,8 @@ export async function readSettings(): Promise<Settings> {
     ...stored,
     layout: clampLayout({ ...DEFAULT_SETTINGS.layout, ...stored?.layout }),
     questions: Array.isArray(stored?.questions) ? stored.questions : DEFAULT_QUESTIONS,
+    clockFormat: stored?.clockFormat === "24" ? "24" : "12",
+    alarmVolume: Math.min(100, Math.max(0, Math.round(Number(stored?.alarmVolume ?? DEFAULT_SETTINGS.alarmVolume)) || 0)),
   };
 }
 

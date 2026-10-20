@@ -15,12 +15,17 @@ export interface Layout {
   streamHeight: number;
 }
 
+export type ClockFormat = "12" | "24";
+
 export interface Settings {
   eventName: string;
   streamUrl: string;
   nexusUrl: string;
   layout: Layout;
   questions: Question[];
+  clockFormat: ClockFormat;
+  /** Alarm volume, 0-100. */
+  alarmVolume: number;
 }
 
 export interface SurveyResponse {

@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
+import { AlarmDialog } from "@/components/alarm-dialog";
 import { NavBar } from "@/components/nav-bar";
+import { readSettings } from "@/lib/store";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,7 +10,9 @@ export const metadata: Metadata = {
   description: "Pit display for FRC team 6324",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  await connection();
+  const { clockFormat, alarmVolume } = await readSettings();
   return (
     <html lang="en" className="h-full">
       <body className="flex min-h-dvh flex-col">
@@ -17,10 +22,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        <NavBar />
+        <NavBar clockFormat={clockFormat} />
         <main id="main" className="flex flex-1 flex-col">
           {children}
         </main>
+        <AlarmDialog volume={alarmVolume} />
       </body>
     </html>
   );

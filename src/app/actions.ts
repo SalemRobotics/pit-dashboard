@@ -44,6 +44,16 @@ export async function saveLayoutSettings(_prev: ActionState, fd: FormData): Prom
   return ok("Layout saved.");
 }
 
+export async function saveClockSettings(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const clockFormat = str(fd.get("clockFormat"));
+  if (clockFormat !== "12" && clockFormat !== "24") return fail("Pick a 12-hour or 24-hour clock.");
+  const volume = Number(fd.get("alarmVolume"));
+  if (!Number.isInteger(volume) || volume < 0 || volume > 100) return fail("Alarm volume must be between 0 and 100.");
+  await writeSettings({ ...(await readSettings()), clockFormat, alarmVolume: volume });
+  revalidatePath("/", "layout");
+  return ok("Clock and alarm settings saved.");
+}
+
 /** Called directly from the display when a panel divider is dragged. */
 export async function saveLayout(layout: Layout): Promise<void> {
   await writeSettings({ ...(await readSettings()), layout: clampLayout(layout) });

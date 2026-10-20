@@ -5,7 +5,8 @@ import { buttonClass } from "@/components/button-class";
 import { Card, Container, Field, PageHeader, inputClass } from "@/components/ui";
 import { readSettings } from "@/lib/store";
 import { LAYOUT_LIMITS } from "@/lib/types";
-import { saveDisplaySettings, saveLayoutSettings, saveSurveyQuestions } from "../actions";
+import { saveClockSettings, saveDisplaySettings, saveLayoutSettings, saveSurveyQuestions } from "../actions";
+import { ClockAlarmFields } from "./clock-alarm-fields";
 import { QuestionEditor } from "./question-editor";
 
 export const metadata = { title: "Settings" };
@@ -107,6 +108,12 @@ export default async function SettingsPage() {
                 />
               </Field>
             </div>
+          </ActionForm>
+        </Card>
+
+        <Card title="Clock and alarm" description="How the clock in the header looks and how loud the timer alarm is.">
+          <ActionForm action={saveClockSettings} submitLabel="Save clock and alarm" pendingLabel="Saving…">
+            <ClockAlarmFields initialFormat={settings.clockFormat} initialVolume={settings.alarmVolume} />
           </ActionForm>
         </Card>
 
