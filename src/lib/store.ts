@@ -1,0 +1,77 @@
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { LAYOUT_LIMITS, type Layout, type Question, type Settings, type SurveyResponse } from "./types";
+
+// The systemd service points this at /var/lib/pit-display so data survives redeploys.
+const DATA_DIR = process.env.PIT_DATA_DIR ?? path.join(process.cwd(), "data");
+const SETTINGS_FILE = path.join(DATA_DIR, "settings.json");
+const RESPONSES_FILE = path.join(DATA_DIR, "survey-responses.json");
+
+export const DEFAULT_QUESTIONS: Question[] = [
+  { id: "what", label: "What needs repair?", type: "longtext", required: true, options: [] },
+  {
+    id: "area",
+    label: "Which area is it in?",
+    type: "choice",
+    required: true,
+    options: ["Drivetrain", "Mechanism", "Electrical", "Pneumatics", "Software", "Other"],
+  },
+  { id: "match", label: "Does it need to be fixed before the next match?", type: "yesno", required: true, options: [] },
+];
+
+export const DEFAULT_SETTINGS: Settings = {
+  eventName: "",
+  streamUrl: "",
+  nexusUrl: "",
+  layout: { streamWidth: LAYOUT_LIMITS.streamWidth.default, streamHeight: LAYOUT_LIMITS.streamHeight.default },
+  questions: DEFAULT_QUESTIONS,
+};
+
+export function clampLayout(l: Partial<Layout>): Layout {
+  const clamp = (v: unknown, { min, max, default: d }: { min: number; max: number; default: number }) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.round(Math.min(max, Math.max(min, n)) * 10) / 10 : d;
+  };
+  return {
+    streamWidth: clamp(l.streamWidth, LAYOUT_LIMITS.streamWidth),
+    streamHeight: clamp(l.streamHeight, LAYOUT_LIMITS.streamHeight),
+  };
+}
+
+async function readJson<T>(file: string): Promise<T | null> {
+  try {
+    return JSON.parse(await readFile(file, "utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function writeJson(file: string, value: unknown) {
+  await mkdir(DATA_DIR, { recursive: true });
+  const tmp = `${file}.tmp`;
+  await writeFile(tmp, JSON.stringify(value, null, 2));
+  await rename(tmp, file);
+}
+
+export async function readSettings(): Promise<Settings> {
+  const stored = await readJson<Partial<Settings>>(SETTINGS_FILE);
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    layout: clampLayout({ ...DEFAULT_SETTINGS.layout, ...stored?.layout }),
+    questions: Array.isArray(stored?.questions) ? stored.questions : DEFAULT_QUESTIONS,
+  };
+}
+
+export async function writeSettings(settings: Settings) {
+  await writeJson(SETTINGS_FILE, settings);
+}
+
+export async function readResponses(): Promise<SurveyResponse[]> {
+  const stored = await readJson<SurveyResponse[]>(RESPONSES_FILE);
+  return Array.isArray(stored) ? stored : [];
+}
+
+export async function writeResponses(responses: SurveyResponse[]) {
+  await writeJson(RESPONSES_FILE, responses);
+}

@@ -1,0 +1,25 @@
+[Unit]
+Description=6324 pit display
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pitdisplay
+Group=pitdisplay
+WorkingDirectory=/opt/pit-display
+Environment=NODE_ENV=production
+Environment=PIT_DATA_DIR=/var/lib/pit-display
+# __NODE__ and __PORT__ are filled in by deploy/install.sh
+ExecStart=__NODE__ node_modules/next/dist/bin/next start --port __PORT__ --hostname 0.0.0.0
+Restart=always
+RestartSec=3
+StateDirectory=pit-display
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
