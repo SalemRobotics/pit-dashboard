@@ -26,6 +26,29 @@ export interface Settings {
   clockFormat: ClockFormat;
   /** Alarm volume, 0-100. */
   alarmVolume: number;
+  /** Nexus API key (secret: server-side only, never send to the client). */
+  nexusApiKey: string;
+  /** Nexus event key, e.g. "2027casj". */
+  nexusEventKey: string;
+  queueAlertEnabled: boolean;
+  /** Chime/voice volume, 0-100. */
+  chimeVolume: number;
+  /** Other audio is lowered to this percent of its volume while the alert plays, 0-100. */
+  duckLevel: number;
+}
+
+export const TEAM_NUMBER = 6324;
+
+export type Alliance = "red" | "blue";
+
+/** What the server-side Nexus monitor currently knows. Safe to send to the client. */
+export interface QueueState {
+  configured: boolean;
+  /** ISO time of the last successful poll. */
+  lastChecked: string | null;
+  error: string | null;
+  /** Our next match if Nexus has it queuing; null otherwise. */
+  match: { label: string; alliance: Alliance } | null;
 }
 
 export interface SurveyResponse {

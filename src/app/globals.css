@@ -59,6 +59,10 @@
   --accent-ink: var(--color-brand-700);
   --ring: var(--color-brand-500);
 
+  /* Alliance colors: used only for the queue banner/labels and always accompany a text label. Same in light and dark. */
+  --alliance-red: #b42318;
+  --alliance-blue: #1d4ed8;
+
   /* The header is identical in light and dark. */
   --header: var(--color-brand-950);
   --header-line: var(--color-brand-900);
@@ -133,6 +137,8 @@
 
 @theme inline {
   --color-canvas: var(--canvas);
+  --color-alliance-red: var(--alliance-red);
+  --color-alliance-blue: var(--alliance-blue);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-surface-hover: var(--surface-hover);

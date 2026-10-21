@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/components/action-form";
 import { clampLayout, readResponses, readSettings, writeResponses, writeSettings } from "@/lib/store";
+import { triggerTestAlert } from "@/lib/queue-monitor";
 import { LAYOUT_LIMITS, type Layout, type Question, type QuestionType } from "@/lib/types";
 
 const fail = (message: string): ActionState => ({ ok: false, message });
@@ -123,4 +124,37 @@ export async function clearSurveyResponses(): Promise<ActionState> {
   await writeResponses([]);
   revalidatePath("/survey/responses");
   return ok("All reports deleted.");
+}
+
+export async function saveQueueSettings(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const eventKey = str(fd.get("nexusEventKey")).toLowerCase();
+  if (eventKey && !/^[a-z0-9]{4,20}$/.test(eventKey))
+    return fail("The event key should be letters and numbers only, like 2027casj.");
+  const chimeVolume = Number(fd.get("chimeVolume"));
+  const duckLevel = Number(fd.get("duckLevel"));
+  if (!Number.isInteger(chimeVolume) || chimeVolume < 0 || chimeVolume > 100)
+    return fail("Chime volume must be between 0 and 100.");
+  if (!Number.isInteger(duckLevel) || duckLevel < 0 || duckLevel > 100)
+    return fail("Music level during alerts must be between 0 and 100.");
+
+  const current = await readSettings();
+  const newKey = str(fd.get("nexusApiKey"));
+  const nexusApiKey = str(fd.get("clearNexusApiKey")) === "on" ? "" : newKey || current.nexusApiKey;
+  await writeSettings({
+    ...current,
+    nexusApiKey,
+    nexusEventKey: eventKey,
+    queueAlertEnabled: fd.get("queueAlertEnabled") !== null,
+    chimeVolume,
+    duckLevel,
+  });
+  revalidatePath("/", "layout");
+  return ok("Queue alert settings saved.");
+}
+
+export async function testQueueAlert(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const alliance = str(fd.get("alliance"));
+  if (alliance !== "red" && alliance !== "blue") return fail("Pick the red or blue alliance to test.");
+  const result = await triggerTestAlert(alliance);
+  return result.ok ? ok(result.message) : fail(result.message);
 }

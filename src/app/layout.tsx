@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AlarmDialog } from "@/components/alarm-dialog";
+import { QueueBanner } from "@/components/queue-banner";
 import { NavBar } from "@/components/nav-bar";
 import { readSettings } from "@/lib/store";
 import "./globals.css";
@@ -23,6 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to content
         </a>
         <NavBar clockFormat={clockFormat} />
+        <QueueBanner />
         <main id="main" className="flex flex-1 flex-col">
           {children}
         </main>

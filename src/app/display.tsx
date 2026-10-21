@@ -247,7 +247,7 @@ export function Display({
           "--rows": `${h}fr ${HANDLE}px ${100 - h}fr`,
         } as React.CSSProperties
       }
-      className="flex h-[calc(100dvh-3.5rem)] flex-col gap-3 overflow-y-auto p-3 md:grid md:gap-0 md:overflow-hidden md:[grid-template-columns:var(--cols)] md:[grid-template-rows:var(--rows)]"
+      className="flex h-[calc(100dvh-57px-var(--banner-h,0px))] flex-col gap-3 overflow-y-auto p-3 md:grid md:gap-0 md:overflow-hidden md:[grid-template-columns:var(--cols)] md:[grid-template-rows:var(--rows)]"
     >
       <Panel title="Match stream" className="min-h-72 shrink-0 md:col-start-1 md:row-start-1 md:min-h-0">
         <EmbedBody url={streamUrl} title="Match stream" missingTitle="No stream configured" inert={inert} />

@@ -6,7 +6,6 @@
 set -euo pipefail
 
 APP_NAME=pit-display
-APP_USER=pitdisplay
 APP_DIR=/opt/pit-display
 DATA_DIR=/var/lib/pit-display
 PORT="${PORT:-3000}"
@@ -30,7 +29,7 @@ node_ok() {
 
 log "Installing system packages"
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl rsync
+apt-get install -y -qq ca-certificates curl rsync pulseaudio-utils espeak-ng
 
 if ! node_ok; then
   log "Installing Node.js $NODE_MAJOR (from NodeSource)"
@@ -41,8 +40,23 @@ node_ok || die "Node.js 20.9 or newer is required"
 NODE_BIN="$(readlink -f "$(command -v node)")"
 echo "Using $NODE_BIN ($(node -v))"
 
-log "Creating service user and directories"
-id "$APP_USER" >/dev/null 2>&1 || useradd --system --home-dir "$APP_DIR" --no-create-home --shell /usr/sbin/nologin "$APP_USER"
+log "Choosing the service user and creating directories"
+APP_USER="${PIT_USER:-${SUDO_USER:-}}"
+AUDIO_USER=0
+if [[ -z "$APP_USER" || "$APP_USER" == root ]]; then
+  APP_USER=pitdisplay
+  printf 'warning: no desktop user detected; using the dedicated "%s" user.\n' "$APP_USER" >&2
+  printf 'warning: audio alerts will NOT work. Run via sudo from the desktop user'"'"'s account, or set PIT_USER=<name>.\n' >&2
+  id "$APP_USER" >/dev/null 2>&1 || useradd --system --home-dir "$APP_DIR" --no-create-home --shell /usr/sbin/nologin "$APP_USER"
+else
+  id "$APP_USER" >/dev/null 2>&1 || die "user '$APP_USER' does not exist"
+  AUDIO_USER=1
+  # Keep /run/user/<uid> and the user's PipeWire/Pulse socket alive without a login session.
+  loginctl enable-linger "$APP_USER"
+fi
+APP_UID="$(id -u "$APP_USER")"
+APP_GROUP="$(id -gn "$APP_USER")"
+echo "Service user: $APP_USER (uid $APP_UID, group $APP_GROUP)"
 mkdir -p "$APP_DIR" "$DATA_DIR"
 
 log "Copying the app to $APP_DIR"
@@ -57,10 +71,39 @@ export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
 export NEXT_TELEMETRY_DISABLED=1
 npm ci --no-audit --no-fund
 npm run build
-chown -R "$APP_USER:$APP_USER" "$APP_DIR" "$DATA_DIR"
+VOICE_DIR="$DATA_DIR/voice"
+PIPER_VOICE="${PIPER_VOICE:-en_US-lessac-medium}"
+
+# Pre-renders "Now queued for Red" / "Now queued for Blue" with Piper (a natural-sounding offline voice) so the
+# running service only has to play two WAV files. Needs internet once (~300 MB incl. the Python venv).
+setup_voice() {
+  local py="$VOICE_DIR/venv/bin/python" alliance
+  apt-get install -y -qq python3 python3-venv || return 1
+  mkdir -p "$VOICE_DIR/models" "$VOICE_DIR/clips" || return 1
+  [[ -x "$py" ]] || python3 -m venv "$VOICE_DIR/venv" || return 1
+  "$py" -m pip install -q piper-tts || return 1
+  [[ -f "$VOICE_DIR/models/$PIPER_VOICE.onnx" ]] ||
+    "$py" -m piper.download_voices "$PIPER_VOICE" --download-dir "$VOICE_DIR/models" || return 1
+  rm -f "$VOICE_DIR"/clips/*-alliance.wav # clips from earlier versions
+  for alliance in red blue; do
+    "$py" -m piper -m "$PIPER_VOICE" --data-dir "$VOICE_DIR/models" \
+      -f "$VOICE_DIR/clips/queued-$alliance.tmp.wav" -- "Now queued for ${alliance^}" || return 1
+    mv "$VOICE_DIR/clips/queued-$alliance.tmp.wav" "$VOICE_DIR/clips/queued-$alliance.wav" || return 1
+  done
+}
+
+if [[ $AUDIO_USER -eq 1 ]]; then
+  log "Generating the alliance voice clips ($PIPER_VOICE)"
+  if ! setup_voice; then
+    printf 'warning: could not set up the Piper voice; alerts will use the espeak-ng voice instead.\n' >&2
+  fi
+fi
+
+chown -R "$APP_USER:$APP_GROUP" "$APP_DIR" "$DATA_DIR"
 
 log "Installing the systemd service"
 sed -e "s|__NODE__|$NODE_BIN|" -e "s|__PORT__|$PORT|" \
+  -e "s|__USER__|$APP_USER|g" -e "s|__GROUP__|$APP_GROUP|g" -e "s|__UID__|$APP_UID|g" \
   "$REPO_DIR/deploy/$APP_NAME.service" > "/etc/systemd/system/$APP_NAME.service"
 systemctl daemon-reload
 systemctl enable "$APP_NAME" >/dev/null
@@ -72,6 +115,9 @@ if systemctl is-active --quiet "$APP_NAME"; then
   for ip in $(hostname -I 2>/dev/null); do echo "    http://$ip:$PORT"; done
   echo "    logs:    journalctl -u $APP_NAME -f"
   echo "    restart: sudo systemctl restart $APP_NAME"
+  if [[ $AUDIO_USER -eq 1 ]]; then
+    echo "    audio:   test with the 'Test red alliance alert' button in Settings; watch 'journalctl -u $APP_NAME -f' for audio warnings"
+  fi
 else
   journalctl -u "$APP_NAME" -n 30 --no-pager || true
   die "the service failed to start (see log above)"

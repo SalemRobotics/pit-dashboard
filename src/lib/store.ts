@@ -27,6 +27,16 @@ export const DEFAULT_SETTINGS: Settings = {
   questions: DEFAULT_QUESTIONS,
   clockFormat: "12",
   alarmVolume: 60,
+  nexusApiKey: "",
+  nexusEventKey: "",
+  queueAlertEnabled: true,
+  chimeVolume: 70,
+  duckLevel: 20,
+};
+
+const pct = (v: unknown, d: number) => {
+  const n = Number(v ?? d);
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : d;
 };
 
 export function clampLayout(l: Partial<Layout>): Layout {
@@ -51,7 +61,8 @@ async function readJson<T>(file: string): Promise<T | null> {
 async function writeJson(file: string, value: unknown) {
   await mkdir(DATA_DIR, { recursive: true });
   const tmp = `${file}.tmp`;
-  await writeFile(tmp, JSON.stringify(value, null, 2));
+  // 0600: settings.json holds the Nexus API key
+  await writeFile(tmp, JSON.stringify(value, null, 2), { mode: 0o600 });
   await rename(tmp, file);
 }
 
@@ -63,6 +74,11 @@ export async function readSettings(): Promise<Settings> {
     layout: clampLayout({ ...DEFAULT_SETTINGS.layout, ...stored?.layout }),
     questions: Array.isArray(stored?.questions) ? stored.questions : DEFAULT_QUESTIONS,
     clockFormat: stored?.clockFormat === "24" ? "24" : "12",
+    nexusApiKey: typeof stored?.nexusApiKey === "string" ? stored.nexusApiKey : "",
+    nexusEventKey: typeof stored?.nexusEventKey === "string" ? stored.nexusEventKey : "",
+    queueAlertEnabled: stored?.queueAlertEnabled !== false,
+    chimeVolume: pct(stored?.chimeVolume, DEFAULT_SETTINGS.chimeVolume),
+    duckLevel: pct(stored?.duckLevel, DEFAULT_SETTINGS.duckLevel),
     alarmVolume: Math.min(100, Math.max(0, Math.round(Number(stored?.alarmVolume ?? DEFAULT_SETTINGS.alarmVolume)) || 0)),
   };
 }

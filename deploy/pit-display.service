@@ -1,16 +1,21 @@
 [Unit]
 Description=6324 pit display
-After=network-online.target
-Wants=network-online.target
+After=network-online.target user@__UID__.service
+Wants=network-online.target user@__UID__.service
 
 [Service]
 Type=simple
-User=pitdisplay
-Group=pitdisplay
+User=__USER__
+Group=__GROUP__
 WorkingDirectory=/opt/pit-display
 Environment=NODE_ENV=production
 Environment=PIT_DATA_DIR=/var/lib/pit-display
-# __NODE__ and __PORT__ are filled in by deploy/install.sh
+# Pre-rendered Piper voice clips (see setup_voice in deploy/install.sh); espeak-ng is the fallback
+Environment=PIT_VOICE_DIR=/var/lib/pit-display/voice/clips
+# Audio alerts (pactl/paplay/espeak-ng) talk to the desktop user's PulseAudio/PipeWire socket.
+Environment=XDG_RUNTIME_DIR=/run/user/__UID__
+Environment=PULSE_SERVER=unix:/run/user/__UID__/pulse/native
+# Placeholders in this file are filled in by deploy/install.sh
 ExecStart=__NODE__ node_modules/next/dist/bin/next start --port __PORT__ --hostname 0.0.0.0
 Restart=always
 RestartSec=3
@@ -18,7 +23,6 @@ StateDirectory=pit-display
 
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectHome=true
 ProtectSystem=full
 
 [Install]

@@ -2,11 +2,20 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { ActionForm } from "@/components/action-form";
 import { buttonClass } from "@/components/button-class";
-import { Card, Container, Field, PageHeader, inputClass } from "@/components/ui";
+import { Badge, Card, Container, Field, PageHeader, inputClass } from "@/components/ui";
+import { getQueueState } from "@/lib/queue-monitor";
 import { readSettings } from "@/lib/store";
 import { LAYOUT_LIMITS } from "@/lib/types";
-import { saveClockSettings, saveDisplaySettings, saveLayoutSettings, saveSurveyQuestions } from "../actions";
+import {
+  saveClockSettings,
+  saveDisplaySettings,
+  saveLayoutSettings,
+  saveQueueSettings,
+  saveSurveyQuestions,
+  testQueueAlert,
+} from "../actions";
 import { ClockAlarmFields } from "./clock-alarm-fields";
+import { QueueAlertFields } from "./queue-alert-fields";
 import { QuestionEditor } from "./question-editor";
 
 export const metadata = { title: "Settings" };
@@ -14,6 +23,8 @@ export const metadata = { title: "Settings" };
 export default async function SettingsPage() {
   await connection();
   const settings = await readSettings();
+  const hasKey = Boolean(settings.nexusApiKey);
+  const queue = getQueueState();
   const { streamWidth: w, streamHeight: h } = LAYOUT_LIMITS;
 
   return (
@@ -115,6 +126,68 @@ export default async function SettingsPage() {
           <ActionForm action={saveClockSettings} submitLabel="Save clock and alarm" pendingLabel="Saving…">
             <ClockAlarmFields initialFormat={settings.clockFormat} initialVolume={settings.alarmVolume} />
           </ActionForm>
+        </Card>
+
+        <Card
+          title="Queue alerts"
+          description="Play a chime and announce the alliance when Nexus starts queuing the robot."
+        >
+          <ActionForm action={saveQueueSettings} submitLabel="Save queue alerts" pendingLabel="Saving…">
+            <QueueAlertFields
+              hasKey={hasKey}
+              initialEventKey={settings.nexusEventKey}
+              initialEnabled={settings.queueAlertEnabled}
+              initialVolume={settings.chimeVolume}
+              initialDuck={settings.duckLevel}
+            />
+          </ActionForm>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4 text-[13px] text-ink-2">
+            {!queue.configured ? (
+              <Badge tone="neutral">Not set up</Badge>
+            ) : queue.error ? (
+              <>
+                <Badge tone="danger">Problem</Badge>
+                <span>{queue.error}</span>
+              </>
+            ) : (
+              <>
+                <Badge tone="success">Connected</Badge>
+                <span className="tabular-nums">
+                  {queue.lastChecked
+                    ? `Last checked ${new Date(queue.lastChecked).toLocaleTimeString()}`
+                    : "Waiting for the first check"}
+                </span>
+              </>
+            )}
+            {queue.match && (
+              <Badge tone="accent">
+                Queuing: {queue.match.alliance === "red" ? "Red" : "Blue"} alliance
+              </Badge>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-start gap-3">
+            <ActionForm
+              action={testQueueAlert}
+              submitLabel="Test red alliance alert"
+              submitVariant="secondary"
+              pendingLabel="Playing…"
+            >
+              <input type="hidden" name="alliance" value="red" />
+            </ActionForm>
+            <ActionForm
+              action={testQueueAlert}
+              submitLabel="Test blue alliance alert"
+              submitVariant="secondary"
+              pendingLabel="Playing…"
+            >
+              <input type="hidden" name="alliance" value="blue" />
+            </ActionForm>
+          </div>
+          <p className="mt-3 text-[13px] text-ink-3">
+            Test sounds play from this device&apos;s speakers, not from the browser.
+          </p>
         </Card>
 
         <Card
