@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState, useTransition, type KeyboardE
 import { EmbedFrame } from "@/components/embed-frame";
 import { buttonClass } from "@/components/button-class";
 import { Badge, EmptyState } from "@/components/ui";
-import { LAYOUT_LIMITS, type Layout } from "@/lib/types";
+import { SurveyDialog } from "@/components/survey-dialog";
+import { LAYOUT_LIMITS, type Layout, type Question, type StreamStatus } from "@/lib/types";
 import { saveLayout } from "./actions";
 
 const HANDLE = 12;
@@ -53,13 +54,25 @@ function SettingsLink() {
   );
 }
 
-function EmbedBody({ url, title, missingTitle, inert }: { url: string; title: string; missingTitle: string; inert: boolean }) {
+function EmbedBody({
+  url,
+  title,
+  missingTitle,
+  missingHint = "Add a link in settings and it will show up here.",
+  inert,
+}: {
+  url: string;
+  title: string;
+  missingTitle: string;
+  missingHint?: string;
+  inert: boolean;
+}) {
   if (!url) {
     return (
       <EmptyState
         icon={MonitorOff}
         title={missingTitle}
-        description="Add a link in settings and it will show up here."
+        description={missingHint}
         action={<SettingsLink />}
       />
     );
@@ -157,21 +170,76 @@ function Handle({
   );
 }
 
+const STREAM_REFRESH_MS = 5 * 60 * 1000;
+
 export function Display({
-  streamUrl,
+  initialStreamUrl,
+  initialStreamSource,
+  initialStreamLabel,
   nexusUrl,
   initialLayout,
+  questions,
+  eventName,
 }: {
-  streamUrl: string;
+  initialStreamUrl: string;
+  initialStreamSource: StreamStatus["source"];
+  initialStreamLabel: string;
   nexusUrl: string;
   initialLayout: Layout;
+  questions: Question[];
+  eventName: string;
 }) {
+  const [stream, setStream] = useState({
+    url: initialStreamUrl,
+    source: initialStreamSource,
+    label: initialStreamLabel,
+  });
   const [layout, setLayout] = useState<Layout>(() => clampLayout(initialLayout));
   const [dragging, setDragging] = useState<Dragging>(null);
   const [, startTransition] = useTransition();
   const layoutRef = useRef(layout);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const container = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let timerId: ReturnType<typeof setInterval> | null = null;
+    const refresh = async () => {
+      try {
+        const res = await fetch("/api/stream", { cache: "no-store" });
+        if (!res.ok) return;
+        const next = (await res.json()) as StreamStatus;
+        setStream((cur) =>
+          cur.url === next.url && cur.source === next.source && cur.label === next.label
+            ? cur
+            : { url: next.url, source: next.source, label: next.label },
+        );
+      } catch {
+        // Keep showing the current stream if the check fails.
+      }
+    };
+    const stop = () => {
+      if (timerId) clearInterval(timerId);
+      timerId = null;
+    };
+    const start = () => {
+      stop();
+      timerId = setInterval(refresh, STREAM_REFRESH_MS);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+        start();
+      } else {
+        stop();
+      }
+    };
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   const persist = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -249,8 +317,26 @@ export function Display({
       }
       className="flex h-[calc(100dvh-57px-var(--banner-h,0px))] flex-col gap-3 overflow-y-auto p-3 md:grid md:gap-0 md:overflow-hidden md:[grid-template-columns:var(--cols)] md:[grid-template-rows:var(--rows)]"
     >
-      <Panel title="Match stream" className="min-h-72 shrink-0 md:col-start-1 md:row-start-1 md:min-h-0">
-        <EmbedBody url={streamUrl} title="Match stream" missingTitle="No stream configured" inert={inert} />
+      <Panel
+        title="Match stream"
+        className="min-h-72 shrink-0 md:col-start-1 md:row-start-1 md:min-h-0"
+        actions={
+          stream.source === "auto" ? (
+            <div className="flex min-w-0 items-center gap-2" title={stream.label}>
+              <Badge tone="neutral">Auto</Badge>
+              {stream.label && <span className="hidden truncate text-[13px] text-ink-3 md:inline">{stream.label}</span>}
+              <span className="sr-only">{stream.label ? `Detected automatically: ${stream.label}` : "Detected automatically"}</span>
+            </div>
+          ) : undefined
+        }
+      >
+        <EmbedBody
+          url={stream.url}
+          title="Match stream"
+          missingTitle="No stream configured"
+          missingHint="Add a link or a Blue Alliance key in settings."
+          inert={inert}
+        />
       </Panel>
 
       <Panel
@@ -277,9 +363,7 @@ export function Display({
         <Panel title="Pit repair" className="min-h-48 md:min-h-0 md:flex-[2]">
           <div className="flex h-full flex-col items-start justify-center gap-3 p-4">
             <p className="text-[13px] text-ink-2">Something broken or needs work? Tell the pit crew so it gets fixed.</p>
-            <Link href="/survey" className={buttonClass({ variant: "primary", size: "lg" })}>
-              Report a repair
-            </Link>
+            <SurveyDialog questions={questions} eventName={eventName} label="Report a repair" size="lg" />
             <Link href="/survey/responses" className={buttonClass({ variant: "ghost", size: "sm" })}>
               View reports
             </Link>

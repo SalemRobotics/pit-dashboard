@@ -1,14 +1,5 @@
-import { ClipboardList } from "lucide-react";
-import { connection } from "next/server";
-import Link from "next/link";
-import { ActionForm } from "@/components/action-form";
-import { buttonClass } from "@/components/button-class";
-import { Card, Container, EmptyState, Field, PageHeader, inputClass, labelClass, textareaClass } from "@/components/ui";
-import { submitSurvey } from "@/app/actions";
-import { readSettings } from "@/lib/store";
 import type { Question } from "@/lib/types";
-
-export const metadata = { title: "Pit repair survey" };
+import { Field, inputClass, labelClass, textareaClass } from "./ui";
 
 const chipClass =
   "flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-line-strong bg-surface px-3.5 text-sm text-ink shadow-xs transition hover:bg-surface-hover has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring";
@@ -86,54 +77,23 @@ function QuestionField({ q }: { q: Question }) {
   );
 }
 
-export default async function SurveyPage() {
-  await connection();
-  const settings = await readSettings();
-
+/** One field per question (names `q_<id>`), plus the optional name field. */
+export function SurveyFields({ questions }: { questions: Question[] }) {
   return (
-    <Container className="max-w-2xl">
-      <PageHeader
-        eyebrow={settings.eventName || undefined}
-        title="Pit repair survey"
-        subtitle="Tell the pit crew what needs fixing."
-        actions={
-          <Link href="/survey/responses" className={buttonClass({ variant: "ghost" })}>
-            View reports
-          </Link>
-        }
-      />
-      <Card>
-        {settings.questions.length === 0 ? (
-          <EmptyState
-            icon={ClipboardList}
-            title="No survey questions yet"
-            description="Add some questions in settings so the team can send repair reports."
-            action={
-              <Link href="/settings" className={buttonClass({ variant: "secondary" })}>
-                Set up questions
-              </Link>
-            }
-          />
-        ) : (
-          <ActionForm action={submitSurvey} submitLabel="Send report" pendingLabel="Sending…" resetOnSuccess>
-            <div className="space-y-5">
-              {settings.questions.map((q) => (
-                <QuestionField key={q.id} q={q} />
-              ))}
-              <Field label="Your name (optional)" htmlFor="submittedBy">
-                <input
-                  id="submittedBy"
-                  name="submittedBy"
-                  type="text"
-                  autoComplete="name"
-                  maxLength={80}
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-          </ActionForm>
-        )}
-      </Card>
-    </Container>
+    <div className="space-y-5">
+      {questions.map((q) => (
+        <QuestionField key={q.id} q={q} />
+      ))}
+      <Field label="Your name (optional)" htmlFor="submittedBy">
+        <input
+          id="submittedBy"
+          name="submittedBy"
+          type="text"
+          autoComplete="name"
+          maxLength={80}
+          className={inputClass}
+        />
+      </Field>
+    </div>
   );
 }

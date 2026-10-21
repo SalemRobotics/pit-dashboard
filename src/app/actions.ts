@@ -27,7 +27,20 @@ export async function saveDisplaySettings(_prev: ActionState, fd: FormData): Pro
   const nexusUrl = str(fd.get("nexusUrl"));
   if (!validUrl(streamUrl)) return fail("The stream URL must start with http:// or https://.");
   if (!validUrl(nexusUrl)) return fail("The Nexus URL must start with http:// or https://.");
-  await writeSettings({ ...(await readSettings()), eventName, streamUrl, nexusUrl });
+  const eventKey = str(fd.get("eventKey")).toLowerCase();
+  if (eventKey && !/^[a-z0-9]{4,20}$/.test(eventKey))
+    return fail("The event key should be letters and numbers only, like 2027casj.");
+  const current = await readSettings();
+  const tbaApiKey = str(fd.get("clearTbaApiKey")) === "on" ? "" : str(fd.get("tbaApiKey")) || current.tbaApiKey;
+  await writeSettings({
+    ...current,
+    eventName,
+    streamUrl,
+    nexusUrl,
+    eventKey,
+    tbaApiKey,
+    autoStream: fd.get("autoStream") !== null,
+  });
   revalidatePath("/", "layout");
   return ok("Display settings saved.");
 }
@@ -127,9 +140,6 @@ export async function clearSurveyResponses(): Promise<ActionState> {
 }
 
 export async function saveQueueSettings(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const eventKey = str(fd.get("nexusEventKey")).toLowerCase();
-  if (eventKey && !/^[a-z0-9]{4,20}$/.test(eventKey))
-    return fail("The event key should be letters and numbers only, like 2027casj.");
   const chimeVolume = Number(fd.get("chimeVolume"));
   const duckLevel = Number(fd.get("duckLevel"));
   if (!Number.isInteger(chimeVolume) || chimeVolume < 0 || chimeVolume > 100)
@@ -143,7 +153,6 @@ export async function saveQueueSettings(_prev: ActionState, fd: FormData): Promi
   await writeSettings({
     ...current,
     nexusApiKey,
-    nexusEventKey: eventKey,
     queueAlertEnabled: fd.get("queueAlertEnabled") !== null,
     chimeVolume,
     duckLevel,

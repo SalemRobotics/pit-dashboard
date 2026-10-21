@@ -40,13 +40,11 @@ function RangeField({
 
 export function QueueAlertFields({
   hasKey,
-  initialEventKey,
   initialEnabled,
   initialVolume,
   initialDuck,
 }: {
   hasKey: boolean;
-  initialEventKey: string;
   initialEnabled: boolean;
   initialVolume: number;
   initialDuck: number;
@@ -57,26 +55,11 @@ export function QueueAlertFields({
 
   return (
     <div className="grid gap-4">
-      <Field
-        label="Nexus event key"
-        htmlFor="nexusEventKey"
-        hint="The event's key from The Blue Alliance or Nexus, like 2027casj."
-      >
-        <input
-          id="nexusEventKey"
-          name="nexusEventKey"
-          type="text"
-          className={inputClass}
-          defaultValue={initialEventKey}
-          placeholder="2027casj"
-          autoComplete="off"
-        />
-      </Field>
       <div>
         <Field
           label="Nexus API key"
           htmlFor="nexusApiKey"
-          hint="Get a key at frc.nexus/api. Leave blank to keep the saved key."
+          hint="Get a key at frc.nexus/api. Leave blank to keep the saved key. Alerts use the event key set above."
         >
           <input
             id="nexusApiKey"

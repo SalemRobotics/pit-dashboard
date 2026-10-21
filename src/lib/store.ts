@@ -28,7 +28,9 @@ export const DEFAULT_SETTINGS: Settings = {
   clockFormat: "12",
   alarmVolume: 60,
   nexusApiKey: "",
-  nexusEventKey: "",
+  eventKey: "",
+  tbaApiKey: "",
+  autoStream: true,
   queueAlertEnabled: true,
   chimeVolume: 70,
   duckLevel: 20,
@@ -75,7 +77,15 @@ export async function readSettings(): Promise<Settings> {
     questions: Array.isArray(stored?.questions) ? stored.questions : DEFAULT_QUESTIONS,
     clockFormat: stored?.clockFormat === "24" ? "24" : "12",
     nexusApiKey: typeof stored?.nexusApiKey === "string" ? stored.nexusApiKey : "",
-    nexusEventKey: typeof stored?.nexusEventKey === "string" ? stored.nexusEventKey : "",
+    // nexusEventKey is the pre-rename name of eventKey
+    eventKey:
+      typeof stored?.eventKey === "string"
+        ? stored.eventKey
+        : typeof (stored as { nexusEventKey?: unknown })?.nexusEventKey === "string"
+          ? (stored as { nexusEventKey: string }).nexusEventKey
+          : "",
+    tbaApiKey: typeof stored?.tbaApiKey === "string" ? stored.tbaApiKey : "",
+    autoStream: stored?.autoStream !== false,
     queueAlertEnabled: stored?.queueAlertEnabled !== false,
     chimeVolume: pct(stored?.chimeVolume, DEFAULT_SETTINGS.chimeVolume),
     duckLevel: pct(stored?.duckLevel, DEFAULT_SETTINGS.duckLevel),

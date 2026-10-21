@@ -28,8 +28,12 @@ export interface Settings {
   alarmVolume: number;
   /** Nexus API key (secret: server-side only, never send to the client). */
   nexusApiKey: string;
-  /** Nexus event key, e.g. "2027casj". */
-  nexusEventKey: string;
+  /** Event key override, e.g. "2027casj". Blank = detect the event from The Blue Alliance. */
+  eventKey: string;
+  /** The Blue Alliance read API key (secret: server-side only, never send to the client). */
+  tbaApiKey: string;
+  /** Pick the live stream from The Blue Alliance's webcast list for today. Manual streamUrl is the fallback. */
+  autoStream: boolean;
   queueAlertEnabled: boolean;
   /** Chime/voice volume, 0-100. */
   chimeVolume: number;
@@ -70,3 +74,19 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   yesno: "Yes / no",
   choice: "Multiple choice",
 };
+
+/** What the server worked out for the stream panel and the settings status line. Safe to send to the client. */
+export interface StreamStatus {
+  /** URL to embed; "" when nothing is configured or detected. */
+  url: string;
+  source: "auto" | "manual" | "none";
+  /** Human-readable, e.g. "Twitch: firstinspires (Fri, Mar 13)". Empty when source is "none". */
+  label: string;
+  eventKey: string | null;
+  eventName: string | null;
+  /** Whether eventKey was detected (true) or typed in settings (false). */
+  eventAuto: boolean;
+  error: string | null;
+  /** ISO time of the last successful TBA fetch. */
+  checkedAt: string | null;
+}

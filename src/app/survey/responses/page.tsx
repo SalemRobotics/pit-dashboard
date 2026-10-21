@@ -1,11 +1,11 @@
-import { Wrench } from "lucide-react";
+import { Download, Wrench } from "lucide-react";
 import { connection } from "next/server";
-import Link from "next/link";
-import { ActionForm } from "@/components/action-form";
 import { buttonClass } from "@/components/button-class";
+import { ActionForm } from "@/components/action-form";
 import { Badge, Card, Container, EmptyState, PageHeader } from "@/components/ui";
 import { clearSurveyResponses } from "@/app/actions";
-import { readResponses } from "@/lib/store";
+import { SurveyDialog } from "@/components/survey-dialog";
+import { readResponses, readSettings } from "@/lib/store";
 
 export const metadata = { title: "Repair reports" };
 
@@ -13,7 +13,7 @@ const timeFormat: Intl.DateTimeFormatOptions = { month: "short", day: "numeric",
 
 export default async function ResponsesPage() {
   await connection();
-  const responses = await readResponses();
+  const [responses, settings] = await Promise.all([readResponses(), readSettings()]);
   const n = responses.length;
 
   return (
@@ -22,9 +22,15 @@ export default async function ResponsesPage() {
         title="Repair reports"
         subtitle={`${n} ${n === 1 ? "report" : "reports"}`}
         actions={
-          <Link href="/survey" className={buttonClass({ variant: "primary" })}>
-            New report
-          </Link>
+          <>
+            {n > 0 && (
+              <a href="/survey/responses/export" download className={buttonClass({ variant: "secondary" })}>
+                <Download className="size-4" aria-hidden />
+                Export CSV
+              </a>
+            )}
+            <SurveyDialog questions={settings.questions} eventName={settings.eventName} label="New report" />
+          </>
         }
       />
       <div className="space-y-6">
@@ -35,9 +41,7 @@ export default async function ResponsesPage() {
               title="No repair reports yet"
               description="Reports sent from the survey show up here."
               action={
-                <Link href="/survey" className={buttonClass({ variant: "primary" })}>
-                  Send a report
-                </Link>
+                <SurveyDialog questions={settings.questions} eventName={settings.eventName} label="Send a report" />
               }
             />
           ) : (

@@ -1,6 +1,7 @@
 import { playQueueAlert, type AlertResult } from "./audio-duck";
 import { fetchOurQueuedMatch } from "./nexus";
 import { readSettings } from "./store";
+import { resolveEventKey } from "./tba";
 import type { Alliance, QueueState } from "./types";
 
 const POLL_MS = 8000;
@@ -27,11 +28,17 @@ async function poll(): Promise<number> {
   const m = monitor;
   try {
     const settings = await readSettings();
-    if (!settings.nexusApiKey || !settings.nexusEventKey) {
+    const resolved = settings.nexusApiKey ? await resolveEventKey(settings) : null;
+    if (resolved?.error && !resolved.eventKey) {
+      m.state = { configured: true, lastChecked: m.state.lastChecked, error: resolved.error, match: null };
+      return ERROR_BACKOFF_MS;
+    }
+    const eventKey = resolved?.eventKey;
+    if (!settings.nexusApiKey || !eventKey) {
       m.state = { configured: false, lastChecked: m.state.lastChecked, error: null, match: null };
       return POLL_MS;
     }
-    const match = await fetchOurQueuedMatch(settings.nexusApiKey, settings.nexusEventKey);
+    const match = await fetchOurQueuedMatch(settings.nexusApiKey, eventKey);
     m.state = {
       configured: true,
       lastChecked: new Date().toISOString(),

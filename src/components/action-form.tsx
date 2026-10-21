@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { useActionState, useEffect, useRef, useTransition, type ReactNode } from "react";
+import { useActionState, useEffect, useEffectEvent, useRef, useTransition, type ReactNode } from "react";
 import { buttonClass, type ButtonVariant } from "./button-class";
 
 export type ActionState = { ok: boolean; message: string } | null;
@@ -14,6 +14,7 @@ export function ActionForm({
   submitVariant = "primary",
   confirmMessage,
   resetOnSuccess,
+  onSuccess,
   className = "",
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
@@ -23,6 +24,8 @@ export function ActionForm({
   submitVariant?: ButtonVariant;
   confirmMessage?: string;
   resetOnSuccess?: boolean;
+  /** Called once each time the action reports success. */
+  onSuccess?: () => void;
   className?: string;
 }) {
   const [state, formAction, actionPending] = useActionState(action, null);
@@ -30,9 +33,14 @@ export function ActionForm({
   const pending = actionPending || transitionPending;
   const formRef = useRef<HTMLFormElement>(null);
 
+  const handleSuccess = useEffectEvent(() => {
+    if (resetOnSuccess) formRef.current?.reset();
+    onSuccess?.();
+  });
+
   useEffect(() => {
-    if (resetOnSuccess && state?.ok) formRef.current?.reset();
-  }, [state, resetOnSuccess]);
+    if (state?.ok) handleSuccess();
+  }, [state]);
 
   return (
     <form
