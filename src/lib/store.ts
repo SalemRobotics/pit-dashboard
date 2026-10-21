@@ -6,6 +6,7 @@ import { LAYOUT_LIMITS, type Layout, type Question, type Settings, type SurveyRe
 const DATA_DIR = process.env.PIT_DATA_DIR ?? path.join(process.cwd(), "data");
 const SETTINGS_FILE = path.join(DATA_DIR, "settings.json");
 const RESPONSES_FILE = path.join(DATA_DIR, "survey-responses.json");
+export const LOGS_DIR = path.join(DATA_DIR, "logs");
 
 export const DEFAULT_QUESTIONS: Question[] = [
   { id: "what", label: "What needs repair?", type: "longtext", required: true, options: [] },
@@ -27,13 +28,18 @@ export const DEFAULT_SETTINGS: Settings = {
   questions: DEFAULT_QUESTIONS,
   clockFormat: "12",
   alarmVolume: 60,
-  nexusApiKey: "",
   eventKey: "",
   tbaApiKey: "",
   autoStream: true,
   queueAlertEnabled: true,
   chimeVolume: 70,
   duckLevel: 20,
+  robotHost: "10.63.24.2",
+  robotSshPort: 22,
+  robotSshUsername: "",
+  robotSshPassword: "",
+  robotWpilogDir: "",
+  robotHootLogDir: "",
 };
 
 const pct = (v: unknown, d: number) => {
@@ -76,7 +82,6 @@ export async function readSettings(): Promise<Settings> {
     layout: clampLayout({ ...DEFAULT_SETTINGS.layout, ...stored?.layout }),
     questions: Array.isArray(stored?.questions) ? stored.questions : DEFAULT_QUESTIONS,
     clockFormat: stored?.clockFormat === "24" ? "24" : "12",
-    nexusApiKey: typeof stored?.nexusApiKey === "string" ? stored.nexusApiKey : "",
     // nexusEventKey is the pre-rename name of eventKey
     eventKey:
       typeof stored?.eventKey === "string"
@@ -90,6 +95,15 @@ export async function readSettings(): Promise<Settings> {
     chimeVolume: pct(stored?.chimeVolume, DEFAULT_SETTINGS.chimeVolume),
     duckLevel: pct(stored?.duckLevel, DEFAULT_SETTINGS.duckLevel),
     alarmVolume: Math.min(100, Math.max(0, Math.round(Number(stored?.alarmVolume ?? DEFAULT_SETTINGS.alarmVolume)) || 0)),
+    robotHost: typeof stored?.robotHost === "string" && stored.robotHost ? stored.robotHost : DEFAULT_SETTINGS.robotHost,
+    robotSshPort: (() => {
+      const n = Number(stored?.robotSshPort);
+      return Number.isInteger(n) && n > 0 && n <= 65535 ? n : DEFAULT_SETTINGS.robotSshPort;
+    })(),
+    robotSshUsername: typeof stored?.robotSshUsername === "string" ? stored.robotSshUsername : "",
+    robotSshPassword: typeof stored?.robotSshPassword === "string" ? stored.robotSshPassword : "",
+    robotWpilogDir: typeof stored?.robotWpilogDir === "string" ? stored.robotWpilogDir : "",
+    robotHootLogDir: typeof stored?.robotHootLogDir === "string" ? stored.robotHootLogDir : "",
   };
 }
 

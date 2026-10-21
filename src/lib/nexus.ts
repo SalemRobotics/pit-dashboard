@@ -1,48 +1,71 @@
+import { TBA_BASE, getTeamMatches, type TbaMatchSimple } from "./tba";
 import { TEAM_NUMBER, type Alliance } from "./types";
 
-export interface QueuedMatch {
+export interface QueueTrack {
+  matchKey: string;
   label: string;
   alliance: Alliance;
-  status: string;
 }
 
-const teamList = (v: unknown): string[] => (Array.isArray(v) ? v.map((t) => String(t).replace(/^frc/i, "").trim()) : []);
+interface NexusMatchInfo {
+  label: string;
+  status: string;
+  played: boolean;
+}
 
-/** Pure parser: finds our "Now queuing" match in a Nexus event payload. Unknown shapes yield null. */
-export function findOurQueuedMatch(data: unknown, team = TEAM_NUMBER): QueuedMatch | null {
-  if (!data || typeof data !== "object") return null;
-  const matches = (data as { matches?: unknown }).matches;
-  if (!Array.isArray(matches)) return null;
-  const us = String(team);
-  for (const m of matches) {
-    if (!m || typeof m !== "object") continue;
-    const { label, status, redTeams, blueTeams } = m as Record<string, unknown>;
-    if (typeof label !== "string" || status !== "Now queuing") continue;
-    if (teamList(redTeams).includes(us)) return { label, alliance: "red", status };
-    if (teamList(blueTeams).includes(us)) return { label, alliance: "blue", status };
+interface NexusInfo {
+  now_queueing?: { match_key: string; match_name: string } | null;
+  matches?: Record<string, NexusMatchInfo>;
+}
+
+/**
+ * Pure: decides which match's queue banner should be showing right now.
+ * - If Nexus says we're now queuing, track that match (resolving our alliance via `teamMatches`).
+ * - Otherwise, keep showing whatever match is already tracked (`current`) until TBA/Nexus marks it
+ *   played, so the banner survives the gap between "now queuing" clearing and the match being scored.
+ */
+export function nextQueueTrack(
+  nexusInfo: NexusInfo,
+  teamMatches: TbaMatchSimple[],
+  current: QueueTrack | null,
+  team = TEAM_NUMBER,
+): QueueTrack | null {
+  const nq = nexusInfo.now_queueing;
+  if (nq) {
+    const us = `frc${team}`;
+    const match = teamMatches.find((m) => m.key === nq.match_key);
+    if (match?.alliances.red.team_keys.includes(us)) return { matchKey: nq.match_key, label: nq.match_name, alliance: "red" };
+    if (match?.alliances.blue.team_keys.includes(us)) return { matchKey: nq.match_key, label: nq.match_name, alliance: "blue" };
   }
+  if (current && !nexusInfo.matches?.[current.matchKey]?.played) return current;
   return null;
 }
 
-export async function fetchOurQueuedMatch(apiKey: string, eventKey: string): Promise<QueuedMatch | null> {
+// Not cached like other TBA calls: queue status changes second-to-second, so every poll needs a live fetch.
+async function fetchNexusInfo(eventKey: string, apiKey: string): Promise<NexusInfo> {
   let res: Response;
   try {
-    res = await fetch(`https://frc.nexus/api/v1/event/${encodeURIComponent(eventKey)}`, {
-      headers: { "Nexus-Api-Key": apiKey },
+    res = await fetch(`${TBA_BASE}/event/${encodeURIComponent(eventKey)}/nexus_info`, {
+      headers: { "X-TBA-Auth-Key": apiKey },
       signal: AbortSignal.timeout(8000),
       cache: "no-store",
     });
   } catch {
-    throw new Error("Couldn't reach Nexus.");
+    throw new Error("Couldn't reach The Blue Alliance.");
   }
-  if (res.status === 401 || res.status === 403) throw new Error("Nexus rejected the API key.");
-  if (res.status === 404) throw new Error("Nexus doesn't have that event key.");
-  if (!res.ok) throw new Error("Couldn't reach Nexus.");
-  let data: unknown;
+  if (res.status === 401 || res.status === 403) throw new Error("The Blue Alliance rejected the API key.");
+  if (res.status === 404) throw new Error("This event doesn't have a Nexus feed.");
+  if (!res.ok) throw new Error("Couldn't reach The Blue Alliance.");
   try {
-    data = await res.json();
+    return (await res.json()) as NexusInfo;
   } catch {
-    throw new Error("Couldn't reach Nexus.");
+    throw new Error("Couldn't reach The Blue Alliance.");
   }
-  return findOurQueuedMatch(data);
+}
+
+export async function fetchQueueTrack(apiKey: string, eventKey: string, current: QueueTrack | null): Promise<QueueTrack | null> {
+  const nexusInfo = await fetchNexusInfo(eventKey, apiKey);
+  // Only worth resolving alliances when there's a new "now queuing" match to check against.
+  const teamMatches = nexusInfo.now_queueing ? await getTeamMatches(eventKey, apiKey) : [];
+  return nextQueueTrack(nexusInfo, teamMatches, current);
 }

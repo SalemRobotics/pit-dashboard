@@ -7,7 +7,7 @@ import { readSettings } from "@/lib/store";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "6324 pit display",
+  title: "6324 Pit Display",
   description: "Pit display for FRC team 6324",
 };
 

@@ -1,7 +1,8 @@
 import { TEAM_NUMBER, type Settings } from "./types";
 
 // TBA_BASE_URL exists so tests can point at a fake server.
-const BASE = process.env.TBA_BASE_URL ?? "https://www.thebluealliance.com/api/v3";
+export const TBA_BASE = process.env.TBA_BASE_URL ?? "https://www.thebluealliance.com/api/v3";
+const BASE = TBA_BASE;
 const TTL_MS = 10 * 60 * 1000;
 
 interface CacheEntry {
@@ -91,6 +92,19 @@ export async function getEventResult(eventKey: string, apiKey: string): Promise<
 
 export async function getEvent(eventKey: string, apiKey: string): Promise<TbaEvent> {
   return tbaGet<TbaEvent>(`/event/${encodeURIComponent(eventKey)}`, apiKey);
+}
+
+export interface TbaMatchSimple {
+  key: string;
+  alliances: {
+    red: { team_keys: string[] };
+    blue: { team_keys: string[] };
+  };
+}
+
+/** The matches team 6324 plays at an event, used to work out which alliance it's on for a given match key. */
+export async function getTeamMatches(eventKey: string, apiKey: string): Promise<TbaMatchSimple[]> {
+  return tbaGet<TbaMatchSimple[]>(`/team/frc${TEAM_NUMBER}/event/${encodeURIComponent(eventKey)}/matches/simple`, apiKey);
 }
 
 const ymd = (d: Date) =>

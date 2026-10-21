@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Field, inputClass } from "@/components/ui";
+import { Field } from "@/components/ui";
 
 function RangeField({
   id,
@@ -39,12 +39,10 @@ function RangeField({
 }
 
 export function QueueAlertFields({
-  hasKey,
   initialEnabled,
   initialVolume,
   initialDuck,
 }: {
-  hasKey: boolean;
   initialEnabled: boolean;
   initialVolume: number;
   initialDuck: number;
@@ -55,28 +53,6 @@ export function QueueAlertFields({
 
   return (
     <div className="grid gap-4">
-      <div>
-        <Field
-          label="Nexus API key"
-          htmlFor="nexusApiKey"
-          hint="Get a key at frc.nexus/api. Leave blank to keep the saved key. Alerts use the event key set above."
-        >
-          <input
-            id="nexusApiKey"
-            name="nexusApiKey"
-            type="password"
-            autoComplete="off"
-            className={inputClass}
-            placeholder={hasKey ? "Saved" : "Paste your key"}
-          />
-        </Field>
-        {hasKey && (
-          <label className="mt-2 flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" name="clearNexusApiKey" className={checkClass} />
-            Remove the saved key
-          </label>
-        )}
-      </div>
       <label className="flex items-center gap-2 text-sm text-ink">
         <input type="checkbox" name="queueAlertEnabled" defaultChecked={initialEnabled} className={checkClass} />
         Play a chime when the robot is queued

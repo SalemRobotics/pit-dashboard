@@ -47,7 +47,7 @@ export function NavBar({ clockFormat }: { clockFormat: ClockFormat }) {
             <MonitorPlay className="size-4" aria-hidden />
           </span>
           <span className="text-[15px] font-semibold tracking-[-0.01em]">
-            6324 pit display
+            6324 Pit Display
           </span>
         </Link>
 

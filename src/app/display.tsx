@@ -1,11 +1,12 @@
 "use client";
 
-import { BatteryCharging, Download, ExternalLink, MonitorOff, TriangleAlert } from "lucide-react";
+import { BatteryCharging, ExternalLink, MonitorOff, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { EmbedFrame } from "@/components/embed-frame";
 import { buttonClass } from "@/components/button-class";
 import { Badge, EmptyState } from "@/components/ui";
+import { RobotLogsPanel } from "@/components/robot-logs-panel";
 import { SurveyDialog } from "@/components/survey-dialog";
 import { LAYOUT_LIMITS, type Layout, type Question, type StreamStatus } from "@/lib/types";
 import { saveLayout } from "./actions";
@@ -370,17 +371,7 @@ export function Display({
           </div>
         </Panel>
         <Panel title="Robot logs" className="min-h-48 md:min-h-0 md:flex-[3]">
-          <div className="flex h-full flex-col items-start justify-center gap-3 p-4">
-            <p className="text-[13px] text-ink-2">Download the latest logs from the robot once it is connected.</p>
-            <div className="flex flex-wrap items-center gap-3">
-              {/* TODO: wire up log retrieval from the robot; this button intentionally does nothing yet. */}
-              <button type="button" className={buttonClass({ variant: "secondary", size: "md" })}>
-                <Download className="size-4" aria-hidden />
-                Pull logs
-              </button>
-              <Badge tone="neutral">Not connected</Badge>
-            </div>
-          </div>
+          <RobotLogsPanel />
         </Panel>
       </div>
 

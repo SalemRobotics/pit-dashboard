@@ -3,6 +3,7 @@ import { ActionForm } from "@/components/action-form";
 import { SurveyDialog } from "@/components/survey-dialog";
 import { Badge, Card, Container, Field, PageHeader, inputClass } from "@/components/ui";
 import { getQueueState } from "@/lib/queue-monitor";
+import { getRobotLogState } from "@/lib/robot-logs";
 import { getStreamStatus } from "@/lib/stream-detect";
 import { readSettings } from "@/lib/store";
 import { LAYOUT_LIMITS } from "@/lib/types";
@@ -11,6 +12,7 @@ import {
   saveDisplaySettings,
   saveLayoutSettings,
   saveQueueSettings,
+  saveRobotSettings,
   saveSurveyQuestions,
   testQueueAlert,
 } from "../actions";
@@ -23,12 +25,13 @@ export const metadata = { title: "Settings" };
 export default async function SettingsPage() {
   await connection();
   const settings = await readSettings();
-  const hasKey = Boolean(settings.nexusApiKey);
   const hasTbaKey = Boolean(settings.tbaApiKey);
   const stream = await getStreamStatus();
   const checkClass =
     "size-4 accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
   const queue = getQueueState();
+  const robotLog = getRobotLogState();
+  const hasRobotPassword = Boolean(settings.robotSshPassword);
   const { streamWidth: w, streamHeight: h } = LAYOUT_LIMITS;
 
   return (
@@ -207,11 +210,10 @@ export default async function SettingsPage() {
 
         <Card
           title="Queue alerts"
-          description="Play a chime and announce the alliance when Nexus starts queuing the robot. Uses the event key from Event and displays."
+          description="Play a chime and announce the alliance when Nexus starts queuing the robot. Uses the Blue Alliance API key and event key from Event and displays."
         >
           <ActionForm action={saveQueueSettings} submitLabel="Save queue alerts" pendingLabel="Saving…">
             <QueueAlertFields
-              hasKey={hasKey}
               initialEnabled={settings.queueAlertEnabled}
               initialVolume={settings.chimeVolume}
               initialDuck={settings.duckLevel}
@@ -264,6 +266,127 @@ export default async function SettingsPage() {
           <p className="mt-3 text-[13px] text-ink-3">
             Test sounds play from this device&apos;s speakers, not from the browser.
           </p>
+        </Card>
+
+        <Card
+          title="Robot connection"
+          description="Where to find the robot over SSH so logs can be pulled automatically once it's connected."
+        >
+          <ActionForm action={saveRobotSettings} submitLabel="Save robot connection" pendingLabel="Saving…">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Robot IP address" htmlFor="robotHost">
+                <input
+                  id="robotHost"
+                  name="robotHost"
+                  type="text"
+                  required
+                  className={inputClass}
+                  defaultValue={settings.robotHost}
+                  placeholder="10.63.24.2"
+                  autoComplete="off"
+                />
+              </Field>
+              <Field label="SSH port" htmlFor="robotSshPort">
+                <input
+                  id="robotSshPort"
+                  name="robotSshPort"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={65535}
+                  required
+                  className={`${inputClass} tabular-nums`}
+                  defaultValue={settings.robotSshPort}
+                />
+              </Field>
+              <Field label="SSH username" htmlFor="robotSshUsername">
+                <input
+                  id="robotSshUsername"
+                  name="robotSshUsername"
+                  type="text"
+                  className={inputClass}
+                  defaultValue={settings.robotSshUsername}
+                  placeholder="lvuser"
+                  autoComplete="off"
+                />
+              </Field>
+              <div>
+                <Field
+                  label="SSH password"
+                  htmlFor="robotSshPassword"
+                  hint="Leave blank to keep the saved password."
+                >
+                  <input
+                    id="robotSshPassword"
+                    name="robotSshPassword"
+                    type="password"
+                    autoComplete="off"
+                    className={inputClass}
+                    placeholder={hasRobotPassword ? "Saved" : "Enter the password"}
+                  />
+                </Field>
+                {hasRobotPassword && (
+                  <label className="mt-2 flex items-center gap-2 text-sm text-ink">
+                    <input type="checkbox" name="clearRobotSshPassword" className={checkClass} />
+                    Remove the saved password
+                  </label>
+                )}
+              </div>
+              <Field
+                label="wpilog directory"
+                htmlFor="robotWpilogDir"
+                hint="Remote path to pull .wpilog files from. Leave blank to skip."
+              >
+                <input
+                  id="robotWpilogDir"
+                  name="robotWpilogDir"
+                  type="text"
+                  className={inputClass}
+                  defaultValue={settings.robotWpilogDir}
+                  placeholder="/home/lvuser/logs"
+                  autoComplete="off"
+                />
+              </Field>
+              <Field
+                label="Hoot log directory"
+                htmlFor="robotHootLogDir"
+                hint="Remote path to pull .hoot files from. Leave blank to skip."
+              >
+                <input
+                  id="robotHootLogDir"
+                  name="robotHootLogDir"
+                  type="text"
+                  className={inputClass}
+                  defaultValue={settings.robotHootLogDir}
+                  placeholder="/home/lvuser/logs"
+                  autoComplete="off"
+                />
+              </Field>
+            </div>
+          </ActionForm>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4 text-[13px] text-ink-2">
+            {robotLog.status === "idle" ? (
+              <Badge tone="neutral">Not set up</Badge>
+            ) : robotLog.status === "searching" ? (
+              <Badge tone="neutral">Looking for the robot…</Badge>
+            ) : robotLog.status === "error" ? (
+              <>
+                <Badge tone="danger">Problem</Badge>
+                <span>{robotLog.error}</span>
+              </>
+            ) : (
+              <>
+                <Badge tone="success">{robotLog.status === "pulling" ? "Pulling logs" : "Connected"}</Badge>
+                <span className="tabular-nums">
+                  {robotLog.lastSeen ? `Last seen ${new Date(robotLog.lastSeen).toLocaleTimeString()}` : ""}
+                </span>
+              </>
+            )}
+            {robotLog.lastPulled && (
+              <Badge tone="accent">Latest log: {robotLog.lastPulled.matchLabel ?? robotLog.lastPulled.fileName}</Badge>
+            )}
+          </div>
         </Card>
 
         <Card

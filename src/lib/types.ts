@@ -26,11 +26,9 @@ export interface Settings {
   clockFormat: ClockFormat;
   /** Alarm volume, 0-100. */
   alarmVolume: number;
-  /** Nexus API key (secret: server-side only, never send to the client). */
-  nexusApiKey: string;
   /** Event key override, e.g. "2027casj". Blank = detect the event from The Blue Alliance. */
   eventKey: string;
-  /** The Blue Alliance read API key (secret: server-side only, never send to the client). */
+  /** The Blue Alliance read API key (secret: server-side only, never send to the client). Also powers queue alerts via TBA's nexus_info. */
   tbaApiKey: string;
   /** Pick the live stream from The Blue Alliance's webcast list for today. Manual streamUrl is the fallback. */
   autoStream: boolean;
@@ -39,6 +37,16 @@ export interface Settings {
   chimeVolume: number;
   /** Other audio is lowered to this percent of its volume while the alert plays, 0-100. */
   duckLevel: number;
+  /** SystemCore/roboRIO address for pulling logs over SFTP. */
+  robotHost: string;
+  robotSshPort: number;
+  robotSshUsername: string;
+  /** SFTP password (secret: server-side only, never send to the client). */
+  robotSshPassword: string;
+  /** Remote directory to pull .wpilog files from. Blank = skip. */
+  robotWpilogDir: string;
+  /** Remote directory to pull .hoot files from. Blank = skip. */
+  robotHootLogDir: string;
 }
 
 export const TEAM_NUMBER = 6324;
@@ -74,6 +82,15 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   yesno: "Yes / no",
   choice: "Multiple choice",
 };
+
+/** What the background robot-log monitor currently knows. Safe to send to the client. */
+export interface RobotLogState {
+  status: "idle" | "searching" | "connected" | "pulling" | "error";
+  error: string | null;
+  /** ISO time the robot was last successfully connected to. */
+  lastSeen: string | null;
+  lastPulled: { fileName: string; matchLabel: string | null; pulledAt: string } | null;
+}
 
 /** What the server worked out for the stream panel and the settings status line. Safe to send to the client. */
 export interface StreamStatus {

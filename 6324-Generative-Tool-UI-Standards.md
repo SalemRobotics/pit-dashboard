@@ -2,7 +2,7 @@
 
 **Audience:** an AI coding agent (or a human) starting a *new* internal tool for team 6324 — not necessarily in this repo. This document exists so every tool we build (attendance, inventory, scouting, whatever comes next) looks and behaves like one family of software, without hand-copying code between repos.
 
-This document describes a **look and a set of rules**, not a library. There is no shared npm package to install. Reproduce the tokens and patterns below in the new project's own `globals.css` / component files, adjusted for whatever that tool actually needs. If the new tool is itself a Next.js + Tailwind + TypeScript app, you can copy the referenced files from this repo (`src/app/globals.css`, `src/components/ui.tsx`, `src/components/button-class.ts`, `src/components/nav-bar.tsx`, `src/components/action-form.tsx`) nearly verbatim and just change the brand hue, team name, and nav links. If it's a different stack, treat every CSS value and layout rule here as the spec to re-implement, not literal code to paste.
+This document describes a **look and a set of rules**, not a library. There is no shared npm package to install. Reproduce the tokens and patterns below in the new project's own `globals.css` / component files, adjusted for whatever that tool actually needs. If the new tool is itself a Next.js + Tailwind + TypeScript app, you can copy the referenced files from this repo (`src/app/globals.css`, `src/components/ui.tsx`, `src/components/button-class.ts`, `src/components/nav-bar.tsx`, `src/components/action-form.tsx`) nearly verbatim and just change the brand hue, team name, and nav links. Two files are the exception to "change the brand hue": `src/app/icon.svg` and `src/app/favicon.ico` (see §4.3) are the team logo and copy over completely unchanged, regardless of the new tool's accent color. If it's a different stack, treat every CSS value and layout rule here as the spec to re-implement, not literal code to paste.
 
 The canonical, living implementation of everything in this document is the `frc-attendance` app (this repo). When in doubt, read the real source there — this file summarizes and explains it, but the code is the source of truth if they ever disagree.
 
@@ -21,7 +21,7 @@ Influences: **UniFi, Apple, Stripe, Shopify Polaris, Tailwind UI.** The target f
 
 ## 2. Assumed stack (adjust if different)
 
-This repo is Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + `lucide-react` + Drizzle ORM/Postgres. Tailwind v4's `@theme` block compiles design tokens into real CSS custom properties (`--color-*`), which is what makes the theming trick in §4.6 possible — utility classes like `bg-accent` resolve to `var(--accent)` under the hood, so redefining `--accent` in a scoped selector re-themes every utility that uses it, no utility-class rewriting required. If you're on a different CSS system, reproduce this with plain CSS custom properties — the principle (semantic tokens that reference a raw color scale, never raw hex in components) is what matters, not Tailwind specifically.
+This repo is Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + `lucide-react` + Drizzle ORM/Postgres. Tailwind v4's `@theme` block compiles design tokens into real CSS custom properties (`--color-*`), which is what makes the theming trick in §4.7 possible — utility classes like `bg-accent` resolve to `var(--accent)` under the hood, so redefining `--accent` in a scoped selector re-themes every utility that uses it, no utility-class rewriting required. If you're on a different CSS system, reproduce this with plain CSS custom properties — the principle (semantic tokens that reference a raw color scale, never raw hex in components) is what matters, not Tailwind specifically.
 
 ## 3. Design tokens
 
@@ -113,22 +113,30 @@ Driven entirely by `@media (prefers-color-scheme: dark)` — there is no manual 
 
 A small (28px default) rounded square, `bg-gradient-to-b from-{brand-400} to-{brand-600}`, inset top highlight + subtle drop shadow (`shadow-[inset_0_1px_0_rgb(255_255_255/.25),0_1px_2px_rgb(0_0_0/.3)]`), containing one small white-stroked icon from lucide-react, sized to ~60% of the square. Pick one icon that represents the tool; don't use a photo or a multi-color logo here.
 
-### 4.3 Cards
+### 4.3 Favicon
+
+Unlike the brand mark (§4.2 — one lucide glyph, tinted per-tool, lives in the header), the **favicon is fixed across every tool** and is always the team's actual logo (the devil-head "6324" mark), never a lucide icon or a recolored brand mark. Reproduce it in each new tool as follows:
+
+- Copy the canonical SVG from this repo at `src/app/icon.svg` into the new project at the same path, verbatim, unmodified. Next.js's file-based metadata convention picks up `app/icon.svg` automatically and emits `<link rel="icon" type="image/svg+xml" sizes="any">` — no manual `<head>` wiring needed. If the new tool isn't Next.js, serve the same file and add the equivalent `<link rel="icon" type="image/svg+xml">` tag by hand.
+- Also ship a rasterized `favicon.ico` (place it at `app/favicon.ico` in Next.js) as a fallback for browsers/contexts that don't support SVG favicons. Generate it from the same SVG — a 48×32×16px multi-size ICO, rendered with a transparent background — rather than hand-drawing a separate fallback icon. Don't ship a stale or framework-default `favicon.ico` alongside a correct `icon.svg`; if you can only ship one, ship the SVG.
+- The favicon is intentionally the one piece of brand identity that does **not** follow the per-tool accent-color system in §3.1 — it's the literal team logo at its own fixed color, the same file, in every tool.
+
+### 4.4 Cards
 
 The base content container everywhere. `rounded-card border border-line bg-surface shadow-card`, `overflow-clip` (not `hidden` — needed so sticky table headers inside still work). Optional header row (title + description on the left, actions/counts on the right) separated from the body either by just spacing (default) or a full-width border + tighter padding when the content is a table/list that should run edge-to-edge (the `flush` variant).
 
-### 4.4 Stat tiles
+### 4.5 Stat tiles
 
 A 2-up (mobile) → 3-or-4-up (desktop) grid of small metric cards: muted label (with an optional live-dot or warning-triangle indicator) above a large tabular value, with an optional muted hint line below. Use for "at a glance" numbers at the top of a dashboard — never more than 4 in a row, never as the *only* content on a page (always paired with a table/list below).
 
-### 4.5 Tables
+### 4.6 Tables
 
 - Sticky header (`md:sticky md:top-14`, i.e. sticks just below the app header) on screens `md` and up; horizontal scroll container on narrower screens instead of trying to make the table responsive by hiding columns.
 - Header cells: small, muted, medium-weight, uppercase is **not** used here (sentence case, unlike some admin-UI conventions) — `text-xs font-medium text-ink-3` on a `surface-2` background.
 - Body rows: hover highlight (`hover:bg-surface-hover`), no zebra striping. Numeric columns are right-aligned + tabular. The *first* column (usually a name) is a styled link (underline-on-hover only, not persistent) rather than a separate "view" button/icon.
 - Every border is a bottom border only (`border-b`), removed on the last row — tables read as a stack of hairlines, not a boxed grid.
 
-### 4.6 Theming mechanism (if the tool needs more than one brand color, e.g. white-labeling)
+### 4.7 Theming mechanism (if the tool needs more than one brand color, e.g. white-labeling)
 
 Define the full brand-50..950 scale, plus everything derived from it (`--header*`, `--accent*`, `--ring`, chart series colors), as CSS custom properties. Ship alternate full scales under an attribute selector, e.g. `[data-theme="teal"] { --color-brand-600: ...; }`, placed **after** your dark-mode media query block in the stylesheet (same selector specificity as `:root`/the media query, so source order decides — later wins). Set the attribute server-side on `<html>` based on whatever picked the theme (a DB setting, a config file, a URL param) — never client-side-only, or you'll get a flash of the wrong theme. See `src/app/globals.css` (search `data-theme`) and `src/app/layout.tsx` (`generateViewport` + the `data-theme` attribute on the root layout) for the full worked implementation, including updating the browser's own `theme-color` meta tag to match.
 
@@ -177,8 +185,9 @@ Build these once per tool (or copy from `src/components/` in this repo) and neve
 1. Pick one brand hue; generate the 11-step scale per §3.1 (reuse one of this repo's documented scales — navy/teal/green/purple/red/orange — if it fits, rather than inventing a new one for every tool).
 2. Copy `globals.css`'s token structure (the `@theme` block, the `@theme inline` semantic-token indirection, the `:root` + dark-media-query value sets) and substitute your scale.
 3. Copy `button-class.ts`, `ui.tsx`, `action-form.tsx`, `nav-bar.tsx` wholesale; change the brand mark icon and team/tool name; delete whatever domain-specific components (badges, progress bars, etc.) don't apply and add your own following the same construction rules (§5).
-4. Build the header/nav per §4.1, a `PageHeader` + `Card` skeleton for the first page, and at least one `EmptyState` before writing any real data-fetching — the shell should look finished before it does anything.
-5. Verify in both light and dark mode, and at `375px`, `768px`, and `1280px`+ widths, before calling a screen done.
+4. Copy `icon.svg` and `favicon.ico` unchanged (§4.3) so every tool shows the real team logo in the browser tab, not a lucide glyph or a framework default.
+5. Build the header/nav per §4.1, a `PageHeader` + `Card` skeleton for the first page, and at least one `EmptyState` before writing any real data-fetching — the shell should look finished before it does anything.
+6. Verify in both light and dark mode, and at `375px`, `768px`, and `1280px`+ widths, before calling a screen done.
 
 ## 11. Do / Don't
 

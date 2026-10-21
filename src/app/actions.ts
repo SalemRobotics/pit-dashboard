@@ -147,12 +147,8 @@ export async function saveQueueSettings(_prev: ActionState, fd: FormData): Promi
   if (!Number.isInteger(duckLevel) || duckLevel < 0 || duckLevel > 100)
     return fail("Music level during alerts must be between 0 and 100.");
 
-  const current = await readSettings();
-  const newKey = str(fd.get("nexusApiKey"));
-  const nexusApiKey = str(fd.get("clearNexusApiKey")) === "on" ? "" : newKey || current.nexusApiKey;
   await writeSettings({
-    ...current,
-    nexusApiKey,
+    ...(await readSettings()),
     queueAlertEnabled: fd.get("queueAlertEnabled") !== null,
     chimeVolume,
     duckLevel,
@@ -166,4 +162,30 @@ export async function testQueueAlert(_prev: ActionState, fd: FormData): Promise<
   if (alliance !== "red" && alliance !== "blue") return fail("Pick the red or blue alliance to test.");
   const result = await triggerTestAlert(alliance);
   return result.ok ? ok(result.message) : fail(result.message);
+}
+
+export async function saveRobotSettings(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const robotHost = str(fd.get("robotHost"));
+  if (!robotHost) return fail("Enter the robot's IP address.");
+  const port = Number(fd.get("robotSshPort"));
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return fail("The SSH port must be between 1 and 65535.");
+  const robotSshUsername = str(fd.get("robotSshUsername"));
+  const robotWpilogDir = str(fd.get("robotWpilogDir"));
+  const robotHootLogDir = str(fd.get("robotHootLogDir"));
+
+  const current = await readSettings();
+  const newPassword = str(fd.get("robotSshPassword"));
+  const robotSshPassword = str(fd.get("clearRobotSshPassword")) === "on" ? "" : newPassword || current.robotSshPassword;
+
+  await writeSettings({
+    ...current,
+    robotHost,
+    robotSshPort: port,
+    robotSshUsername,
+    robotSshPassword,
+    robotWpilogDir,
+    robotHootLogDir,
+  });
+  revalidatePath("/", "layout");
+  return ok("Robot connection settings saved.");
 }
