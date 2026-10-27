@@ -29,7 +29,10 @@ node_ok() {
 
 log "Installing system packages"
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl rsync pulseaudio-utils espeak-ng
+# build-essential/python3 let npm compile ssh2's optional "cpu-features" native addon (used for
+# the robot log puller's SFTP connection); without a compiler that build silently fails in a way
+# that can leave node_modules in a broken state and confuse later npm commands.
+apt-get install -y -qq ca-certificates curl rsync pulseaudio-utils espeak-ng build-essential python3
 
 if ! node_ok; then
   log "Installing Node.js $NODE_MAJOR (from NodeSource)"
@@ -69,7 +72,16 @@ cd "$APP_DIR"
 # Small boards can run out of memory during the build; cap the heap below typical RAM.
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
 export NEXT_TELEMETRY_DISABLED=1
-npm ci --no-audit --no-fund
+# A previous failed install can leave node_modules half-built in a way `npm ci` won't repair on
+# its own (it only reports the mismatch, it doesn't fix it) — wipe it first so this is always a
+# clean install, then fall back to a slower but more forgiving `npm install` if `npm ci` still
+# complains the lock file is out of sync.
+rm -rf node_modules
+if ! npm ci --no-audit --no-fund; then
+  log "npm ci failed; retrying with npm install (slower, but repairs an out-of-sync lock file)"
+  rm -rf node_modules
+  npm install --no-audit --no-fund
+fi
 npm run build
 VOICE_DIR="$DATA_DIR/voice"
 PIPER_VOICE="${PIPER_VOICE:-en_US-lessac-medium}"
