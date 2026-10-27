@@ -1,6 +1,6 @@
 "use client";
 
-import { BatteryCharging, ExternalLink, MonitorOff, TriangleAlert } from "lucide-react";
+import { BatteryCharging, ExternalLink, MonitorOff, RotateCw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { EmbedFrame } from "@/components/embed-frame";
@@ -172,6 +172,11 @@ function Handle({
 }
 
 const STREAM_REFRESH_MS = 5 * 60 * 1000;
+// Nexus's own app occasionally navigates itself back to its home page (e.g. after a brief network
+// drop or websocket reconnect) — nothing in our code triggers it, and the iframe is cross-origin so
+// we can't tell when it happens. Periodically forcing a clean reload back to the configured URL caps
+// how long the panel can be stuck on the wrong page.
+const NEXUS_REFRESH_MS = 10 * 60 * 1000;
 
 export function Display({
   initialStreamUrl,
@@ -197,6 +202,9 @@ export function Display({
   });
   const [layout, setLayout] = useState<Layout>(() => clampLayout(initialLayout));
   const [dragging, setDragging] = useState<Dragging>(null);
+  // Bumping this remounts the Nexus iframe, forcing it to reload the configured URL from scratch.
+  const [nexusReloadKey, setNexusReloadKey] = useState(0);
+  const reloadNexus = useCallback(() => setNexusReloadKey((k) => k + 1), []);
   const [, startTransition] = useTransition();
   const layoutRef = useRef(layout);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -241,6 +249,34 @@ export function Display({
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
+
+  useEffect(() => {
+    if (!nexusUrl) return;
+    let timerId: ReturnType<typeof setInterval> | null = null;
+    const stop = () => {
+      if (timerId) clearInterval(timerId);
+      timerId = null;
+    };
+    const start = () => {
+      stop();
+      timerId = setInterval(reloadNexus, NEXUS_REFRESH_MS);
+    };
+    const onVisibility = () => {
+      // Also recover right away when the kiosk screen wakes back up, in case it drifted while hidden.
+      if (document.visibilityState === "visible") {
+        reloadNexus();
+        start();
+      } else {
+        stop();
+      }
+    };
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [nexusUrl, reloadNexus]);
 
   const persist = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -345,19 +381,30 @@ export function Display({
         className="min-h-96 shrink-0 md:col-start-3 md:row-start-1 md:min-h-0"
         actions={
           nexusUrl ? (
-            <a
-              href={nexusUrl}
-              target="_blank"
-              rel="noreferrer"
-              className={buttonClass({ variant: "ghost", size: "sm", className: "-mr-2" })}
-            >
-              <ExternalLink className="size-4" aria-hidden />
-              Open in new tab
-            </a>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Reload Nexus"
+                title="If Nexus has wandered back to its home page, this brings it back to the configured view."
+                onClick={reloadNexus}
+                className={buttonClass({ variant: "ghost", size: "sm", className: "!px-2" })}
+              >
+                <RotateCw className="size-4" aria-hidden />
+              </button>
+              <a
+                href={nexusUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonClass({ variant: "ghost", size: "sm", className: "-mr-2" })}
+              >
+                <ExternalLink className="size-4" aria-hidden />
+                Open in new tab
+              </a>
+            </div>
           ) : undefined
         }
       >
-        <EmbedBody url={nexusUrl} title="Nexus" missingTitle="No Nexus view configured" inert={inert} />
+        <EmbedBody key={nexusReloadKey} url={nexusUrl} title="Nexus" missingTitle="No Nexus view configured" inert={inert} />
       </Panel>
 
       <div className="flex shrink-0 flex-col gap-3 md:col-start-1 md:row-start-3 md:min-h-0 md:flex-row">

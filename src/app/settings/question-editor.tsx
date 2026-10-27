@@ -1,10 +1,10 @@
 "use client";
 
-import { ChevronDown, ChevronUp, ListChecks, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, ListChecks, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { buttonClass } from "@/components/button-class";
 import { EmptyState, Field, inputClass, selectClass, textareaClass } from "@/components/ui";
-import { QUESTION_TYPE_LABELS, type Question, type QuestionType } from "@/lib/types";
+import { isNameLikeLabel, QUESTION_TYPE_LABELS, type Question, type QuestionType } from "@/lib/types";
 
 const MAX_QUESTIONS = 30;
 
@@ -99,6 +99,13 @@ export function QuestionEditor({ initial }: { initial: Question[] }) {
                       placeholder="What needs fixing?"
                       onChange={(e) => update(row.id, { label: e.target.value })}
                     />
+                    {isNameLikeLabel(row.label) && (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-warning-ink">
+                        <AlertTriangle className="size-4 shrink-0" aria-hidden />
+                        Every report already asks for the reporter&apos;s name separately — this question duplicates
+                        it and can&apos;t be saved.
+                      </p>
+                    )}
                   </Field>
                   <Field label="Answer type" htmlFor={`${base}-type`}>
                     <select

@@ -92,6 +92,24 @@ export interface RobotLogState {
   lastPulled: { fileName: string; matchLabel: string | null; pulledAt: string } | null;
 }
 
+/**
+ * The pit repair survey always asks for the reporter's name as its own fixed field
+ * (see SurveyFields' hardcoded "Your name (optional)" input, which posts as
+ * `submittedBy` rather than a `q_<id>` question). The question editor in Settings
+ * only edits `Question[]`, so it has no way to know about that fixed field. Without
+ * this check, an admin can add a configurable question that also asks for a name,
+ * producing two "name" fields in the survey while Settings only shows the one they
+ * added. Reject anything that normalizes to "name" / "your name" at question-save
+ * time so the fixed field stays the only place name is asked.
+ */
+export function isNameLikeLabel(label: string): boolean {
+  const normalized = label
+    .toLowerCase()
+    .replace(/\(optional\)/g, "")
+    .replace(/[^a-z]/g, "");
+  return normalized === "name" || normalized === "yourname" || normalized === "fullname";
+}
+
 /** What the server worked out for the stream panel and the settings status line. Safe to send to the client. */
 export interface StreamStatus {
   /** URL to embed; "" when nothing is configured or detected. */

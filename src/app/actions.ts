@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/components/action-form";
 import { clampLayout, readResponses, readSettings, writeResponses, writeSettings } from "@/lib/store";
 import { triggerTestAlert } from "@/lib/queue-monitor";
-import { LAYOUT_LIMITS, type Layout, type Question, type QuestionType } from "@/lib/types";
+import { isNameLikeLabel, LAYOUT_LIMITS, type Layout, type Question, type QuestionType } from "@/lib/types";
 
 const fail = (message: string): ActionState => ({ ok: false, message });
 const ok = (message: string): ActionState => ({ ok: true, message });
@@ -89,6 +89,10 @@ export async function saveSurveyQuestions(_prev: ActionState, fd: FormData): Pro
   for (const [i, q] of raw.entries()) {
     const label = typeof q?.label === "string" ? q.label.trim().slice(0, 200) : "";
     if (!label) return fail(`Question ${i + 1} needs some text.`);
+    if (isNameLikeLabel(label))
+      return fail(
+        `Question ${i + 1} ("${label}") duplicates the survey's built-in "Your name" field. Remove it — every report already asks for the reporter's name.`,
+      );
     const type: QuestionType = QUESTION_TYPES.includes(q.type) ? q.type : "text";
     const options: string[] =
       type === "choice" && Array.isArray(q.options)

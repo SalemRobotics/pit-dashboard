@@ -391,7 +391,7 @@ export default async function SettingsPage() {
 
         <Card
           title="Pit repair survey"
-          description="Questions shown on the repair survey. Change them for each event."
+          description="Questions shown on the repair survey. Change them for each event. Every report also asks for the reporter's name as a separate, fixed field — don't add your own name question here."
           actions={
             <SurveyDialog
               questions={settings.questions}

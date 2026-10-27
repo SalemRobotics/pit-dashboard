@@ -24,7 +24,7 @@ export interface TbaResult<T> {
 }
 
 /** Like tbaGet but never throws: stale data is returned alongside the error text. */
-export async function tbaFetch<T>(path: string, apiKey: string): Promise<TbaResult<T>> {
+export async function tbaFetch<T>(path: string, apiKey: string, opts?: { force?: boolean }): Promise<TbaResult<T>> {
   const hit = cache.get(path);
   const ok = (e: CacheEntry): TbaResult<T> => ({ data: e.body as T, error: null, fetchedAt: new Date(e.at).toISOString() });
   const stale = (error: string): TbaResult<T> => ({
@@ -32,7 +32,7 @@ export async function tbaFetch<T>(path: string, apiKey: string): Promise<TbaResu
     error,
     fetchedAt: hit ? new Date(hit.at).toISOString() : null,
   });
-  if (hit && Date.now() - hit.at < TTL_MS) return ok(hit);
+  if (hit && !opts?.force && Date.now() - hit.at < TTL_MS) return ok(hit);
 
   let res: Response;
   try {
@@ -62,8 +62,8 @@ export async function tbaFetch<T>(path: string, apiKey: string): Promise<TbaResu
 }
 
 /** Throws a friendly Error on failure (even when a stale body exists; use tbaFetch to get both). */
-export async function tbaGet<T>(path: string, apiKey: string): Promise<T> {
-  const r = await tbaFetch<T>(path, apiKey);
+export async function tbaGet<T>(path: string, apiKey: string, opts?: { force?: boolean }): Promise<T> {
+  const r = await tbaFetch<T>(path, apiKey, opts);
   if (r.error || r.data === null) throw new Error(r.error ?? "Couldn't reach The Blue Alliance.");
   return r.data;
 }
@@ -103,8 +103,8 @@ export interface TbaMatchSimple {
 }
 
 /** The matches team 6324 plays at an event, used to work out which alliance it's on for a given match key. */
-export async function getTeamMatches(eventKey: string, apiKey: string): Promise<TbaMatchSimple[]> {
-  return tbaGet<TbaMatchSimple[]>(`/team/frc${TEAM_NUMBER}/event/${encodeURIComponent(eventKey)}/matches/simple`, apiKey);
+export async function getTeamMatches(eventKey: string, apiKey: string, opts?: { force?: boolean }): Promise<TbaMatchSimple[]> {
+  return tbaGet<TbaMatchSimple[]>(`/team/frc${TEAM_NUMBER}/event/${encodeURIComponent(eventKey)}/matches/simple`, apiKey, opts);
 }
 
 const ymd = (d: Date) =>

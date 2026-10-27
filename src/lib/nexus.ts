@@ -57,7 +57,11 @@ async function fetchNexusInfo(eventKey: string, apiKey: string): Promise<NexusIn
   if (res.status === 404) throw new Error("This event doesn't have a Nexus feed.");
   if (!res.ok) throw new Error("Couldn't reach The Blue Alliance.");
   try {
-    return (await res.json()) as NexusInfo;
+    // TBA's own spec documents this endpoint returning a 200 with a literal JSON `null` body
+    // (not a 404) when it has no Nexus data cached for this event yet — treat that as "nobody
+    // queuing" rather than crashing on `null.now_queueing` below.
+    const body = (await res.json()) as NexusInfo | null;
+    return body ?? { now_queueing: null, matches: {} };
   } catch {
     throw new Error("Couldn't reach The Blue Alliance.");
   }
@@ -65,7 +69,14 @@ async function fetchNexusInfo(eventKey: string, apiKey: string): Promise<NexusIn
 
 export async function fetchQueueTrack(apiKey: string, eventKey: string, current: QueueTrack | null): Promise<QueueTrack | null> {
   const nexusInfo = await fetchNexusInfo(eventKey, apiKey);
+  const nq = nexusInfo.now_queueing;
   // Only worth resolving alliances when there's a new "now queuing" match to check against.
-  const teamMatches = nexusInfo.now_queueing ? await getTeamMatches(eventKey, apiKey) : [];
+  let teamMatches = nq ? await getTeamMatches(eventKey, apiKey) : [];
+  // The match list is cached for 10 minutes; if the schedule just changed (e.g. the event moved from
+  // quals into playoffs) a brand-new match key may not be in that stale list yet. Force one fresh fetch
+  // before concluding it isn't ours, rather than silently missing the alert for up to 10 minutes.
+  if (nq && !teamMatches.some((m) => m.key === nq.match_key)) {
+    teamMatches = await getTeamMatches(eventKey, apiKey, { force: true });
+  }
   return nextQueueTrack(nexusInfo, teamMatches, current);
 }
